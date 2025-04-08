@@ -51,24 +51,39 @@ async def get_all_users(db_engine: AsyncEngine):
                  "first_name": user.first_name, 
                  "last_name": user.last_name} for user in users]
 
-# Function to get all messages for a user
-async def get_user_messages(telegram_id, db_engine: AsyncEngine):
+# Modified get_user_messages function to support time filtering
+async def get_user_messages(telegram_id, db_engine: AsyncEngine, time_period=None):
     async with db_engine.connect() as conn:
-        query = text("""
+        # Base query
+        query_text = """
             SELECT content, timestamp
             FROM messages
             WHERE telegram_id = :telegram_id
-            ORDER BY timestamp
-        """)
+        """
         
-        result = await conn.execute(query, {"telegram_id": telegram_id})
+        # Add time filter if provided
+        params = {"telegram_id": telegram_id}
+        if time_period and "start" in time_period:
+            query_text += " AND timestamp >= :start_time"
+            params["start_time"] = time_period["start"]
+            
+        if time_period and "end" in time_period:
+            query_text += " AND timestamp <= :end_time"
+            params["end_time"] = time_period["end"]
+            
+        # Add order by
+        query_text += " ORDER BY timestamp"
+        
+        # Execute query
+        query = text(query_text)
+        result = await conn.execute(query, params)
         messages = result.fetchall()
         
         return [{"content": msg.content, "timestamp": msg.timestamp} for msg in messages]
 
-# Function to analyze expenses for a specific user
-async def analyze_user_expenses(telegram_id, db_engine: AsyncEngine, llm):
-    messages = await get_user_messages(telegram_id, db_engine)
+async def analyze_user_expenses(telegram_id, db_engine: AsyncEngine, llm, time_period=None):
+    # Get all messages for the user, with optional time filtering
+    messages = await get_user_messages(telegram_id, db_engine, time_period)
     
     if not messages:
         return None

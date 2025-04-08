@@ -8,7 +8,7 @@ from bot.handlers import get_routers
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 import os 
-# Import your voice handling router
+from bot.schedulers.scheduler_weekly import setup_scheduler
 from bot.handlers.commands import router as audio_router  # Adjust the import path
 load_dotenv()
 
@@ -51,13 +51,13 @@ async def main():
     # Include all routers from get_routers() function
     dp.include_routers(*get_routers())
     
-    # Make sure to include your audio router if it's not already in get_routers()
-    # dp.include_router(audio_router)
-    
     bot = Bot(token=bot_config.token.get_secret_value())
-    
-    print("Starting polling...")
-    await dp.start_polling(bot)
+    scheduler = setup_scheduler(bot, engine)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        # Shutdown scheduler when the bot is stopped
+        scheduler.shutdown()
 
 if __name__ == "__main__":
     asyncio.run(main())
