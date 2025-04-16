@@ -54,11 +54,12 @@ async def get_all_users(db_engine: AsyncEngine):
 # Modified get_user_messages function to support time filtering
 async def get_user_messages(telegram_id, db_engine: AsyncEngine, time_period=None):
     async with db_engine.connect() as conn:
-        # Base query
+        # Base query with digit check
         query_text = """
             SELECT content, timestamp
             FROM messages
             WHERE telegram_id = :telegram_id
+            AND content ~ '[0-9]'  -- PostgreSQL regex to find content with digits
         """
         
         # Add time filter if provided
